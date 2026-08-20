@@ -1,51 +1,41 @@
+import os
 import subprocess
-import sys
-from pathlib import Path
 
 
-def run_tests(
-    project_path: str
-) -> dict:
+IMAGE = "ai-engineer-sandbox"
 
-    project_path = Path(
-        project_path
-    ).resolve()
 
-    if not project_path.exists():
+def run_tests(project):
 
-        raise FileNotFoundError(
-            f"Project directory does not exist: "
-            f"{project_path}"
-        )
-
-    if not project_path.is_dir():
-
-        raise NotADirectoryError(
-            f"Project path is not a directory: "
-            f"{project_path}"
-        )
+    project = os.path.abspath(project)
 
     result = subprocess.run(
         [
-            sys.executable,
-            "-m",
-            "pytest"
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--memory",
+            "512m",
+            "--cpus",
+            "1",
+            "--pids-limit",
+            "100",
+            "--read-only",
+            "--tmpfs",
+            "/tmp",
+            "-v",
+            f"{project}:/workspace:rw",
+            IMAGE,
         ],
-        cwd=str(project_path),
         capture_output=True,
-        text=True
+        text=True,
+        timeout=60,
     )
 
     return {
-        "passed":
-            result.returncode == 0,
-
-        "return_code":
-            result.returncode,
-
-        "stdout":
-            result.stdout,
-
-        "stderr":
-            result.stderr
+        "passed": result.returncode == 0,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
     }
