@@ -1,5 +1,7 @@
-import streamlit as st
+import difflib
 from pathlib import Path
+
+import streamlit as st
 
 from graph.main_graph import app
 from graph.state import ProjectState
@@ -13,7 +15,7 @@ from tools.project import prepare_project
 st.set_page_config(
     page_title="AI Software Engineer",
     page_icon="🤖",
-    layout="wide",
+    layout="wide"
 )
 
 
@@ -39,7 +41,7 @@ st.subheader("⚙️ Project Settings")
 uploaded_file = st.file_uploader(
     "📦 Upload a Python project as a ZIP file",
     type=["zip"],
-    help="Upload a ZIP containing your Python project and Pytest tests.",
+    help="Upload a ZIP containing a Python project and Pytest tests."
 )
 
 st.caption(
@@ -82,39 +84,46 @@ if uploaded_file:
 
     st.divider()
 
-    st.success(f"📁 Uploaded: `{uploaded_file.name}`")
+    st.success(
+        f"📁 Uploaded: `{uploaded_file.name}`"
+    )
 
     try:
+
         project, python_files, test_files = prepare_project(
             uploaded_file
         )
 
-        st.success("✅ Python project validated.")
+        st.success(
+            "✅ Python project validated."
+        )
 
         info1, info2, info3 = st.columns(3)
 
         with info1:
             st.metric(
                 "Python Files",
-                len(python_files),
+                len(python_files)
             )
 
         with info2:
             st.metric(
                 "Test Files",
-                len(test_files),
+                len(test_files)
             )
 
         with info3:
             st.metric(
                 "Project",
-                uploaded_file.name,
+                uploaded_file.name
             )
 
         with st.expander("📂 View Project Files"):
 
             for file in python_files:
-                st.write(f"📄 `{file}`")
+                st.write(
+                    f"📄 `{file}`"
+                )
 
         st.session_state["project"] = project
         st.session_state["python_files"] = python_files
@@ -139,15 +148,25 @@ run_workflow = st.button(
     "🚀 Analyze & Fix Project",
     type="primary",
     use_container_width=True,
-    disabled=not uploaded_file,
+    disabled=not uploaded_file
 )
 
 
 if run_workflow:
 
-    project = st.session_state.get("project")
-    python_files = st.session_state.get("python_files", [])
-    test_files = st.session_state.get("test_files", [])
+    project = st.session_state.get(
+        "project"
+    )
+
+    python_files = st.session_state.get(
+        "python_files",
+        []
+    )
+
+    test_files = st.session_state.get(
+        "test_files",
+        []
+    )
 
     if not project:
 
@@ -158,26 +177,50 @@ if run_workflow:
         st.stop()
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # INITIAL STATE
-    # --------------------------------------------------------
+    # ========================================================
 
     initial_state: ProjectState = {
-        "project_path": str(project),
-        "files": [],
-        "repair_plan": "",
-        "corrected_files": [],
-        "test_output": "",
-        "test_errors": "",
-        "tests_passed": False,
-        "review_result": "",
-        "iteration": 0,
+
+        "project_path":
+            str(project),
+
+        "files":
+            python_files,
+
+        "repair_plan":
+            "",
+
+        "original_code":
+            {},
+
+        "corrected_files":
+            [],
+
+        "corrected_code":
+            {},
+
+        "test_output":
+            "",
+
+        "test_errors":
+            "",
+
+        "tests_passed":
+            False,
+
+        "review_result":
+            "",
+
+        "iteration":
+            0
     }
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # SHOW PROJECT
-    # --------------------------------------------------------
+    # ========================================================
 
     st.info(
         f"📁 Project: `{uploaded_file.name}`"
@@ -189,9 +232,9 @@ if run_workflow:
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # RUN LANGGRAPH WORKFLOW
-    # --------------------------------------------------------
+    # ========================================================
 
     with st.spinner(
         "🤖 AI Software Engineer is analyzing and repairing the project..."
@@ -199,23 +242,28 @@ if run_workflow:
 
         try:
 
-            result = app.invoke(initial_state)
+            result = app.invoke(
+                initial_state
+            )
 
         except ValueError as e:
 
             error_message = str(e)
 
-            if "No files were found in the repair plan" in error_message:
+            if (
+                "No files were found in the repair plan"
+                in error_message
+            ):
 
                 st.warning(
-                    "⚠️ The Architect could not identify a file "
-                    "that needs repair."
+                    "⚠️ The Architect could not identify "
+                    "a file that needs repair."
                 )
 
                 st.info(
-                    "The project may already be correct, or the "
-                    "repair plan may not contain the expected file "
-                    "information."
+                    "The project may already be correct, "
+                    "or the repair plan may not contain "
+                    "the expected file information."
                 )
 
             else:
@@ -225,10 +273,14 @@ if run_workflow:
                     f"{error_message}"
                 )
 
-            with st.expander("Show technical details"):
+            with st.expander(
+                "Show technical details"
+            ):
+
                 st.exception(e)
 
             st.stop()
+
 
         except FileNotFoundError as e:
 
@@ -236,10 +288,14 @@ if run_workflow:
                 f"❌ File error:\n\n{e}"
             )
 
-            with st.expander("Show technical details"):
+            with st.expander(
+                "Show technical details"
+            ):
+
                 st.exception(e)
 
             st.stop()
+
 
         except NotADirectoryError as e:
 
@@ -247,10 +303,14 @@ if run_workflow:
                 f"❌ Invalid project directory:\n\n{e}"
             )
 
-            with st.expander("Show technical details"):
+            with st.expander(
+                "Show technical details"
+            ):
+
                 st.exception(e)
 
             st.stop()
+
 
         except Exception as e:
 
@@ -259,11 +319,14 @@ if run_workflow:
             )
 
             st.info(
-                "Check the technical details below for "
-                "the exact error."
+                "Check the technical details below "
+                "for the exact error."
             )
 
-            with st.expander("Show technical details"):
+            with st.expander(
+                "Show technical details"
+            ):
+
                 st.exception(e)
 
             st.stop()
@@ -275,65 +338,103 @@ if run_workflow:
 
     st.divider()
 
-    st.subheader("📊 Final Result")
+    st.subheader(
+        "📊 Final Result"
+    )
 
     result_col1, result_col2, result_col3 = st.columns(3)
 
+
+    # --------------------------------------------------------
+    # TEST RESULT
+    # --------------------------------------------------------
+
     with result_col1:
 
-        if result.get("tests_passed"):
+        if result.get(
+            "tests_passed"
+        ):
 
-            st.success("✅ Tests Passed")
+            st.success(
+                "✅ Tests Passed"
+            )
 
         else:
 
-            st.error("❌ Tests Failed")
+            st.error(
+                "❌ Tests Failed"
+            )
 
+
+    # --------------------------------------------------------
+    # ITERATIONS
+    # --------------------------------------------------------
 
     with result_col2:
 
         st.metric(
             "Iterations",
-            result.get("iteration", 0),
+            result.get(
+                "iteration",
+                0
+            )
         )
 
+
+    # --------------------------------------------------------
+    # REVIEW RESULT
+    # --------------------------------------------------------
 
     with result_col3:
 
         review_result = result.get(
             "review_result",
-            "",
+            ""
         )
 
-        if "APPROVED" in review_result.upper():
+        if (
+            "APPROVED"
+            in review_result.upper()
+        ):
 
-            st.success("✅ APPROVED")
+            st.success(
+                "✅ APPROVED"
+            )
 
-        elif "REJECTED" in review_result.upper():
+        elif (
+            "REJECTED"
+            in review_result.upper()
+        ):
 
-            st.error("❌ REJECTED")
+            st.error(
+                "❌ REJECTED"
+            )
 
         else:
 
-            st.warning("⚠️ REVIEW INCOMPLETE")
+            st.warning(
+                "⚠️ REVIEW INCOMPLETE"
+            )
 
 
     # ========================================================
     # REPAIR PLAN
     # ========================================================
 
-    repair_plan = result.get(
-        "repair_plan",
-        "",
+    st.subheader(
+        "🧠 Repair Plan"
     )
 
-    st.subheader("🧠 Repair Plan")
+    repair_plan = result.get(
+        "repair_plan",
+        ""
+    )
 
     if repair_plan:
 
         st.code(
             repair_plan,
-            language="text",
+            language="text"
         )
 
     else:
@@ -347,12 +448,14 @@ if run_workflow:
     # CORRECTED FILES
     # ========================================================
 
-    corrected_files = result.get(
-        "corrected_files",
-        [],
+    st.subheader(
+        "📝 Corrected Files"
     )
 
-    st.subheader("📝 Corrected Files")
+    corrected_files = result.get(
+        "corrected_files",
+        []
+    )
 
     if corrected_files:
 
@@ -375,22 +478,95 @@ if run_workflow:
 
     corrected_code = result.get(
         "corrected_code",
-        {},
+        {}
     )
 
     if corrected_code:
 
-        st.subheader("💻 Corrected Code")
+        st.subheader(
+            "💻 Corrected Code"
+        )
 
         selected_file = st.selectbox(
             "Select corrected file",
-            list(corrected_code.keys()),
+            list(
+                corrected_code.keys()
+            ),
+            key="corrected_file"
         )
 
         st.code(
-            corrected_code[selected_file],
-            language="python",
+            corrected_code[
+                selected_file
+            ],
+            language="python"
         )
+
+
+    # ========================================================
+    # CODE CHANGES
+    # ========================================================
+
+    original_code = result.get(
+        "original_code",
+        {}
+    )
+
+    if (
+        original_code
+        and corrected_code
+    ):
+
+        st.subheader(
+            "🔄 Code Changes"
+        )
+
+        changed_files = [
+            file
+            for file in corrected_code
+            if file in original_code
+        ]
+
+        if changed_files:
+
+            selected_diff_file = st.selectbox(
+                "Select file to view changes",
+                changed_files,
+                key="diff_file"
+            )
+
+            diff = "".join(
+                difflib.unified_diff(
+                    original_code[
+                        selected_diff_file
+                    ].splitlines(True),
+
+                    corrected_code[
+                        selected_diff_file
+                    ].splitlines(True),
+
+                    fromfile=(
+                        f"{selected_diff_file} "
+                        "(before)"
+                    ),
+
+                    tofile=(
+                        f"{selected_diff_file} "
+                        "(after)"
+                    )
+                )
+            )
+
+            st.code(
+                diff or "No changes detected.",
+                language="diff"
+            )
+
+        else:
+
+            st.info(
+                "No code changes detected."
+            )
 
 
     # ========================================================
@@ -399,31 +575,36 @@ if run_workflow:
 
     test_output = result.get(
         "test_output",
-        "",
+        ""
     )
 
     test_errors = result.get(
         "test_errors",
-        "",
+        ""
     )
+
 
     if test_output:
 
-        st.subheader("🧪 Pytest Output")
+        st.subheader(
+            "🧪 Pytest Output"
+        )
 
         st.code(
             test_output,
-            language="text",
+            language="text"
         )
 
 
     if test_errors:
 
-        st.subheader("⚠️ Pytest Errors")
+        st.subheader(
+            "⚠️ Pytest Errors"
+        )
 
         st.code(
             test_errors,
-            language="text",
+            language="text"
         )
 
 
@@ -433,30 +614,42 @@ if run_workflow:
 
     review_result = result.get(
         "review_result",
-        "",
+        ""
     )
 
     if review_result:
 
-        st.subheader("🔍 Code Review")
+        st.subheader(
+            "🔍 Code Review"
+        )
 
-        cleaned_review = review_result.strip()
+        cleaned_review = (
+            review_result.strip()
+        )
 
-        if cleaned_review.upper().startswith("APPROVED"):
+        if cleaned_review.upper().startswith(
+            "APPROVED"
+        ):
 
             cleaned_review = cleaned_review[
                 len("APPROVED"):
             ].strip()
 
-            st.success("APPROVED")
+            st.success(
+                "APPROVED"
+            )
 
-        elif cleaned_review.upper().startswith("REJECTED"):
+        elif cleaned_review.upper().startswith(
+            "REJECTED"
+        ):
 
             cleaned_review = cleaned_review[
                 len("REJECTED"):
             ].strip()
 
-            st.error("REJECTED")
+            st.error(
+                "REJECTED"
+            )
 
         if cleaned_review:
 
