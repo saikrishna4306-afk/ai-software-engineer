@@ -9,7 +9,7 @@ def coder_node(
     state: ProjectState
 ) -> ProjectState:
 
-    corrected_files = coder_agent(
+    result = coder_agent(
         state["project_path"],
         state["repair_plan"]
     )
@@ -18,7 +18,10 @@ def coder_node(
         **state,
 
         "corrected_files":
-            corrected_files,
+            result["corrected_files"],
+
+        "corrected_code":
+            result["corrected_code"],
 
         "iteration":
             state["iteration"] + 1

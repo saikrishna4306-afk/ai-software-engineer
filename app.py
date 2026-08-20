@@ -1,7 +1,9 @@
 import streamlit as st
+from pathlib import Path
 
 from graph.main_graph import app
 from graph.state import ProjectState
+from tools.project import prepare_project
 
 
 # ============================================================
@@ -11,7 +13,7 @@ from graph.state import ProjectState
 st.set_page_config(
     page_title="AI Software Engineer",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
 )
 
 
@@ -34,9 +36,10 @@ st.divider()
 
 st.subheader("⚙️ Project Settings")
 
-project_path = st.text_input(
-    "Project Path",
-    value="sample_projects/buggy_calculator"
+uploaded_file = st.file_uploader(
+    "📦 Upload a Python project as a ZIP file",
+    type=["zip"],
+    help="Upload a ZIP containing your Python project and Pytest tests.",
 )
 
 st.caption(
@@ -72,6 +75,61 @@ with col4:
 
 
 # ============================================================
+# PROJECT VALIDATION
+# ============================================================
+
+if uploaded_file:
+
+    st.divider()
+
+    st.success(f"📁 Uploaded: `{uploaded_file.name}`")
+
+    try:
+        project, python_files, test_files = prepare_project(
+            uploaded_file
+        )
+
+        st.success("✅ Python project validated.")
+
+        info1, info2, info3 = st.columns(3)
+
+        with info1:
+            st.metric(
+                "Python Files",
+                len(python_files),
+            )
+
+        with info2:
+            st.metric(
+                "Test Files",
+                len(test_files),
+            )
+
+        with info3:
+            st.metric(
+                "Project",
+                uploaded_file.name,
+            )
+
+        with st.expander("📂 View Project Files"):
+
+            for file in python_files:
+                st.write(f"📄 `{file}`")
+
+        st.session_state["project"] = project
+        st.session_state["python_files"] = python_files
+        st.session_state["test_files"] = test_files
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Project validation failed:\n\n{e}"
+        )
+
+        st.stop()
+
+
+# ============================================================
 # RUN WORKFLOW
 # ============================================================
 
@@ -80,18 +138,32 @@ st.divider()
 run_workflow = st.button(
     "🚀 Analyze & Fix Project",
     type="primary",
-    use_container_width=True
+    use_container_width=True,
+    disabled=not uploaded_file,
 )
 
 
 if run_workflow:
+
+    project = st.session_state.get("project")
+    python_files = st.session_state.get("python_files", [])
+    test_files = st.session_state.get("test_files", [])
+
+    if not project:
+
+        st.error(
+            "❌ Please upload a valid Python project first."
+        )
+
+        st.stop()
+
 
     # --------------------------------------------------------
     # INITIAL STATE
     # --------------------------------------------------------
 
     initial_state: ProjectState = {
-        "project_path": project_path,
+        "project_path": str(project),
         "files": [],
         "repair_plan": "",
         "corrected_files": [],
@@ -99,52 +171,23 @@ if run_workflow:
         "test_errors": "",
         "tests_passed": False,
         "review_result": "",
-        "iteration": 0
+        "iteration": 0,
     }
 
-    # --------------------------------------------------------
-    # BASIC PROJECT VALIDATION
-    # --------------------------------------------------------
-
-    from pathlib import Path
-
-    project = Path(project_path).resolve()
-
-    if not project.exists():
-
-        st.error(
-            f"❌ Project directory does not exist:\n\n"
-            f"`{project}`"
-        )
-
-        st.stop()
-
-    if not project.is_dir():
-
-        st.error(
-            f"❌ Project path is not a directory:\n\n"
-            f"`{project}`"
-        )
-
-        st.stop()
-
-    python_files = list(project.glob("*.py"))
-
-    if not python_files:
-
-        st.warning(
-            "⚠️ No Python files were found in the selected project."
-        )
-
-        st.stop()
 
     # --------------------------------------------------------
     # SHOW PROJECT
     # --------------------------------------------------------
 
     st.info(
-        f"📁 Project: `{project}`"
+        f"📁 Project: `{uploaded_file.name}`"
     )
+
+    st.info(
+        f"🐍 Python files: {len(python_files)} | "
+        f"🧪 Test files: {len(test_files)}"
+    )
+
 
     # --------------------------------------------------------
     # RUN LANGGRAPH WORKFLOW
@@ -183,7 +226,6 @@ if run_workflow:
                 )
 
             with st.expander("Show technical details"):
-
                 st.exception(e)
 
             st.stop()
@@ -195,7 +237,6 @@ if run_workflow:
             )
 
             with st.expander("Show technical details"):
-
                 st.exception(e)
 
             st.stop()
@@ -207,7 +248,6 @@ if run_workflow:
             )
 
             with st.expander("Show technical details"):
-
                 st.exception(e)
 
             st.stop()
@@ -219,15 +259,15 @@ if run_workflow:
             )
 
             st.info(
-                "Check the technical details below for the "
-                "exact error."
+                "Check the technical details below for "
+                "the exact error."
             )
 
             with st.expander("Show technical details"):
-
                 st.exception(e)
 
             st.stop()
+
 
     # ========================================================
     # FINAL RESULT
@@ -249,18 +289,20 @@ if run_workflow:
 
             st.error("❌ Tests Failed")
 
+
     with result_col2:
 
         st.metric(
             "Iterations",
-            result.get("iteration", 0)
+            result.get("iteration", 0),
         )
+
 
     with result_col3:
 
         review_result = result.get(
             "review_result",
-            ""
+            "",
         )
 
         if "APPROVED" in review_result.upper():
@@ -275,22 +317,23 @@ if run_workflow:
 
             st.warning("⚠️ REVIEW INCOMPLETE")
 
+
     # ========================================================
     # REPAIR PLAN
     # ========================================================
 
     repair_plan = result.get(
         "repair_plan",
-        ""
+        "",
     )
+
+    st.subheader("🧠 Repair Plan")
 
     if repair_plan:
 
-        st.subheader("🧠 Repair Plan")
-
         st.code(
             repair_plan,
-            language="text"
+            language="text",
         )
 
     else:
@@ -299,18 +342,19 @@ if run_workflow:
             "No repair plan was generated."
         )
 
+
     # ========================================================
     # CORRECTED FILES
     # ========================================================
 
     corrected_files = result.get(
         "corrected_files",
-        []
+        [],
     )
 
-    if corrected_files:
+    st.subheader("📝 Corrected Files")
 
-        st.subheader("📝 Corrected Files")
+    if corrected_files:
 
         for file in corrected_files:
 
@@ -324,18 +368,43 @@ if run_workflow:
             "No files were modified."
         )
 
+
+    # ========================================================
+    # CORRECTED CODE
+    # ========================================================
+
+    corrected_code = result.get(
+        "corrected_code",
+        {},
+    )
+
+    if corrected_code:
+
+        st.subheader("💻 Corrected Code")
+
+        selected_file = st.selectbox(
+            "Select corrected file",
+            list(corrected_code.keys()),
+        )
+
+        st.code(
+            corrected_code[selected_file],
+            language="python",
+        )
+
+
     # ========================================================
     # PYTEST OUTPUT
     # ========================================================
 
     test_output = result.get(
         "test_output",
-        ""
+        "",
     )
 
     test_errors = result.get(
         "test_errors",
-        ""
+        "",
     )
 
     if test_output:
@@ -344,8 +413,9 @@ if run_workflow:
 
         st.code(
             test_output,
-            language="text"
+            language="text",
         )
+
 
     if test_errors:
 
@@ -353,8 +423,9 @@ if run_workflow:
 
         st.code(
             test_errors,
-            language="text"
+            language="text",
         )
+
 
     # ========================================================
     # CODE REVIEW
@@ -362,14 +433,13 @@ if run_workflow:
 
     review_result = result.get(
         "review_result",
-        ""
+        "",
     )
 
     if review_result:
 
         st.subheader("🔍 Code Review")
 
-        # Prevent duplicate APPROVED heading.
         cleaned_review = review_result.strip()
 
         if cleaned_review.upper().startswith("APPROVED"):
@@ -388,9 +458,11 @@ if run_workflow:
 
             st.error("REJECTED")
 
-        st.markdown(
-            cleaned_review
-        )
+        if cleaned_review:
+
+            st.markdown(
+                cleaned_review
+            )
 
     else:
 

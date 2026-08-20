@@ -1,8 +1,6 @@
 from config.llm import get_llm
 
-from langchain_core.prompts import (
-    ChatPromptTemplate
-)
+from langchain_core.prompts import ChatPromptTemplate
 
 from tools.file_tools import (
     read_file,
@@ -49,86 +47,41 @@ STRICT RULES:
 13. Do not use markdown code fences.
 14. Do not provide explanations.
 15. Do not return the word corrected_code.
-
-Example:
-
-Current:
-
-def add(a, b):
-    return a - b
-
-Required repair:
-
-Change subtraction to addition.
-
-Return:
-
-def add(a, b):
-    return a + b
 """)
 
 
 coder_chain = prompt | llm
 
 
-def clean_code_response(
-    content
-) -> str:
+def clean_code_response(content) -> str:
 
-    if isinstance(
-        content,
-        list
-    ):
-
+    if isinstance(content, list):
         code = "\n".join(
             block["text"]
             for block in content
             if block.get("type") == "text"
         )
-
     else:
-
         code = content
 
     code = code.strip()
 
-    if code.startswith(
-        "```python"
-    ):
+    if code.startswith("```python"):
+        code = code[len("```python"):].strip()
 
-        code = code[
-            len("```python"):
-        ].strip()
+    elif code.startswith("```"):
+        code = code[len("```"):].strip()
 
-    elif code.startswith(
-        "```"
-    ):
+    if code.endswith("```"):
+        code = code[:-3].strip()
 
-        code = code[
-            len("```"):
-        ].strip()
-
-    if code.endswith(
-        "```"
-    ):
-
-        code = code[
-            :-3
-        ].strip()
-
-    if (
-        code == "corrected_code"
-    ):
-
+    if code == "corrected_code":
         raise ValueError(
-            "Coder returned "
-            "'corrected_code' instead "
-            "of Python source code."
+            "Coder returned 'corrected_code' "
+            "instead of Python source code."
         )
 
-    validate_python_code(
-        code
-    )
+    validate_python_code(code)
 
     return code
 
@@ -136,50 +89,34 @@ def clean_code_response(
 def coder_agent(
     project_path: str,
     repair_plan: str
-) -> list[str]:
+) -> dict:
 
-    print(
-        "\n========== CODER =========="
-    )
+    print("\n========== CODER ==========")
 
-    print(
-        "Repair Plan:"
-    )
-
-    print(
-        repair_plan
-    )
+    print("Repair Plan:")
+    print(repair_plan)
 
     # --------------------------------------------------
     # NO REPAIR
     # --------------------------------------------------
 
-    if (
-        "NO REPAIR REQUIRED"
-        in repair_plan.upper()
-    ):
+    if "NO REPAIR REQUIRED" in repair_plan.upper():
 
-        print(
-            "Coder: No repair required."
-        )
+        print("Coder: No repair required.")
 
-        return []
+        return {
+            "corrected_files": [],
+            "corrected_code": {}
+        }
 
     # --------------------------------------------------
     # EXTRACT FILES
     # --------------------------------------------------
 
-    files = extract_file_names(
-        repair_plan
-    )
+    files = extract_file_names(repair_plan)
 
-    print(
-        "\nFiles identified by Coder:"
-    )
-
-    print(
-        files
-    )
+    print("\nFiles identified by Coder:")
+    print(files)
 
     if not files:
 
@@ -198,42 +135,19 @@ def coder_agent(
 
     for file in files:
 
-        normalized = file.replace(
-            "\\",
-            "/"
-        )
+        normalized = file.replace("\\", "/")
+        name = normalized.split("/")[-1]
 
-        name = normalized.split(
-            "/"
-        )[-1]
-
-        if name.startswith(
-            "test_"
-        ):
-
-            print(
-                f"Skipping test file: {file}"
-            )
-
+        if name.startswith("test_"):
+            print(f"Skipping test file: {file}")
             continue
 
-        if (
-            normalized.startswith(
-                "tests/"
-            )
-        ):
-
-            print(
-                f"Skipping test file: {file}"
-            )
-
+        if normalized.startswith("tests/"):
+            print(f"Skipping test file: {file}")
             continue
 
         if file not in source_files:
-
-            source_files.append(
-                file
-            )
+            source_files.append(file)
 
     if not source_files:
 
@@ -248,6 +162,7 @@ def coder_agent(
     # --------------------------------------------------
 
     corrected_files = []
+    corrected_sources = {}
 
     for file_name in source_files:
 
@@ -262,14 +177,9 @@ def coder_agent(
 
         response = coder_chain.invoke(
             {
-                "file_name":
-                    file_name,
-
-                "current_code":
-                    current_code,
-
-                "repair_plan":
-                    repair_plan
+                "file_name": file_name,
+                "current_code": current_code,
+                "repair_plan": repair_plan
             }
         )
 
@@ -277,8 +187,7 @@ def coder_agent(
             response.content
         )
 
-        # IMPORTANT:
-        # Validate BEFORE writing.
+        # Validate BEFORE writing
         validate_python_code(
             corrected_code
         )
@@ -293,8 +202,18 @@ def coder_agent(
             file_name
         )
 
+        # Keep the actual corrected source
+        corrected_sources[file_name] = corrected_code
+
         print(
             f"CODER: Updated {file_name}"
         )
 
-    return corrected_files
+    # --------------------------------------------------
+    # RETURN RESULTS
+    # --------------------------------------------------
+
+    return {
+        "corrected_files": corrected_files,
+        "corrected_code": corrected_sources
+    }
