@@ -1,51 +1,60 @@
+import os
 import subprocess
 import sys
-from pathlib import Path
 
 
-def run_tests(
-    project_path: str
-) -> dict:
+IMAGE = "ai-engineer-sandbox"
 
-    project_path = Path(
-        project_path
-    ).resolve()
 
-    if not project_path.exists():
+def run_tests(project):
 
-        raise FileNotFoundError(
-            f"Project directory does not exist: "
-            f"{project_path}"
+    project = os.path.abspath(project)
+
+    # Streamlit Cloud does not use our local Docker Desktop sandbox.
+    if os.getenv("STREAMLIT_CLOUD"):
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+            ],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
 
-    if not project_path.is_dir():
+    else:
 
-        raise NotADirectoryError(
-            f"Project path is not a directory: "
-            f"{project_path}"
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--memory",
+                "512m",
+                "--cpus",
+                "1",
+                "--pids-limit",
+                "100",
+                "--read-only",
+                "--tmpfs",
+                "/tmp",
+                "-v",
+                f"{project}:/workspace:rw",
+                IMAGE,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest"
-        ],
-        cwd=str(project_path),
-        capture_output=True,
-        text=True
-    )
 
     return {
-        "passed":
-            result.returncode == 0,
-
-        "return_code":
-            result.returncode,
-
-        "stdout":
-            result.stdout,
-
-        "stderr":
-            result.stderr
+        "passed": result.returncode == 0,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
     }
